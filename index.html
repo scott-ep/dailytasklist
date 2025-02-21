@@ -206,268 +206,271 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            let projects = JSON.parse(localStorage.getItem('projects')) || {
-                'default': { name: 'Default Project', description: 'Default project', startDate: '2025-02-21', tasks: {} }
-            };
-            let currentProjectId = localStorage.getItem('currentProjectId') || 'default';
+    document.addEventListener('DOMContentLoaded', () => {
+        let projects = JSON.parse(localStorage.getItem('projects')) || {
+            'default': { name: 'Default Project', description: 'Default project', startDate: '2025-02-21', tasks: {} }
+        };
+        let currentProjectId = localStorage.getItem('currentProjectId') || 'default';
 
-            function normalizeTasks(tasks) {
-                Object.keys(tasks).forEach(date => {
-                    if (!Array.isArray(tasks[date])) tasks[date] = [];
+        function normalizeTasks(tasks) {
+            Object.keys(tasks).forEach(date => {
+                if (!Array.isArray(tasks[date])) tasks[date] = [];
+            });
+            return tasks;
+        }
+        Object.values(projects).forEach(project => project.tasks = normalizeTasks(project.tasks));
+
+        function getDayNumber(dateStr, startDate) {
+            const start = new Date(startDate + 'T00:00:00');
+            const current = new Date(dateStr + 'T00:00:00');
+            const diffTime = current - start;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            return diffDays >= 1 ? diffDays : 1;
+        }
+
+        function populateDateDropdown() {
+            const dateInput = document.getElementById('dateInput');
+            const startDate = new Date(projects[currentProjectId].startDate + 'T00:00:00');
+            dateInput.innerHTML = '';
+            for (let i = 0; i < 365; i++) {
+                const date = new Date(startDate);
+                date.setDate(startDate.getDate() + i);
+                const dateStr = date.toISOString().split('T')[0];
+                const dayNum = getDayNumber(dateStr, projects[currentProjectId].startDate);
+                const option = document.createElement('option');
+                option.value = dateStr;
+                option.text = `${date.toDateString()} - Day ${dayNum}`;
+                dateInput.appendChild(option);
+            }
+        }
+
+        function renderProjects() {
+            const projectList = document.getElementById('projectList');
+            projectList.innerHTML = '';
+            Object.entries(projects).forEach(([id, project]) => {
+                const li = document.createElement('li');
+                li.className = 'project-item' + (id === currentProjectId ? ' active' : '');
+                li.innerHTML = `
+                    <span>${project.name}</span>
+                    <button class="edit-btn">Edit</button>
+                `;
+                li.querySelector('span').addEventListener('click', () => switchProject(id));
+                const editBtn = li.querySelector('.edit-btn');
+                editBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    console.log('Edit button clicked for project:', id);
+                    editProject(id);
                 });
-                return tasks;
-            }
-            Object.values(projects).forEach(project => project.tasks = normalizeTasks(project.tasks));
-
-            function getDayNumber(dateStr, startDate) {
-                const start = new Date(startDate + 'T00:00:00');
-                const current = new Date(dateStr + 'T00:00:00');
-                const diffTime = current - start;
-                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
-                return diffDays >= 1 ? diffDays : 1;
-            }
-
-            function populateDateDropdown() {
-                const dateInput = document.getElementById('dateInput');
-                const startDate = new Date(projects[currentProjectId].startDate + 'T00:00:00');
-                dateInput.innerHTML = '';
-                for (let i = 0; i < 365; i++) {
-                    const date = new Date(startDate);
-                    date.setDate(startDate.getDate() + i);
-                    const dateStr = date.toISOString().split('T')[0];
-                    const dayNum = getDayNumber(dateStr, projects[currentProjectId].startDate);
-                    const option = document.createElement('option');
-                    option.value = dateStr;
-                    option.text = `${date.toDateString()} - Day ${dayNum}`;
-                    dateInput.appendChild(option);
-                }
-            }
-
-            function renderProjects() {
-                const projectList = document.getElementById('projectList');
-                projectList.innerHTML = '';
-                Object.entries(projects).forEach(([id, project]) => {
-                    const li = document.createElement('li');
-                    li.className = 'project-item' + (id === currentProjectId ? ' active' : '');
-                    li.innerHTML = `
-                        <span>${project.name}</span>
-                        <button class="edit-btn">Edit</button>
-                    `;
-                    li.querySelector('span').addEventListener('click', () => switchProject(id));
-                    const editBtn = li.querySelector('.edit-btn');
-                    editBtn.addEventListener('click', (e) => {
-                        e.stopPropagation(); // Prevent global click handler
-                        console.log('Edit button clicked for project:', id);
-                        editProject(id);
-                    });
-                    projectList.appendChild(li);
-                });
-            }
-
-            function switchProject(id) {
-                saveProjectEdits();
-                currentProjectId = id;
-                saveData();
-                const title = document.getElementById('projectTitle');
-                const desc = document.getElementById('projectDesc');
-                title.textContent = projects[id].name;
-                desc.textContent = projects[id].description;
-                title.contentEditable = "false";
-                desc.contentEditable = "false";
-                document.getElementById('projectStartDate').value = projects[id].startDate;
-                populateDateDropdown();
-                renderTasks();
-                renderProjects();
-            }
-
-            function editProject(id) {
-                console.log('editProject called with id:', id);
-                currentProjectId = id;
-                const title = document.getElementById('projectTitle');
-                const desc = document.getElementById('projectDesc');
-                if (title && desc) {
-                    title.textContent = projects[id].name;
-                    desc.textContent = projects[id].description;
-                    title.contentEditable = "true";
-                    desc.contentEditable = "true";
-                    title.focus();
-                    console.log('Set contentEditable: title=', title.contentEditable, 'desc=', desc.contentEditable);
-                } else {
-                    console.error('Title or Desc element not found');
-                }
-            }
-
-            function saveProjectEdits() {
-                const title = document.getElementById('projectTitle');
-                const desc = document.getElementById('projectDesc');
-                if (title && desc && (title.contentEditable === "true" || desc.contentEditable === "true")) {
-                    projects[currentProjectId].name = title.textContent.trim();
-                    projects[currentProjectId].description = desc.textContent.trim();
-                    title.contentEditable = "false";
-                    desc.contentEditable = "false";
-                    saveData();
-                    renderProjects();
-                }
-            }
-
-            function sanitizeHtml(html) {
-                const temp = document.createElement('div');
-                temp.innerHTML = html;
-                const allowedTags = ['b', 'i', 'u', 'ul', 'ol', 'li', 'p', 'br'];
-                const walk = (node) => {
-                    if (node.nodeType === 1) {
-                        const tagName = node.tagName.toLowerCase();
-                        if (!allowedTags.includes(tagName)) {
-                            node.replaceWith(...node.childNodes);
-                        } else {
-                            node.removeAttribute('style');
-                            node.removeAttribute('color');
-                            node.removeAttribute('bgcolor');
-                        }
-                        node.childNodes.forEach(walk);
-                    }
-                };
-                walk(temp);
-                return temp.innerHTML;
-            }
-
-            function addTask() {
-                const taskInput = document.getElementById('taskInput');
-                const taskHtml = sanitizeHtml(taskInput.innerHTML.trim());
-                const taskDate = document.getElementById('dateInput').value;
-                if (taskHtml && taskHtml !== 'Paste or type task here') {
-                    if (!projects[currentProjectId].tasks[taskDate]) projects[currentProjectId].tasks[taskDate] = [];
-                    projects[currentProjectId].tasks[taskDate].push({ html: taskHtml, completed: false });
-                    saveData();
-                    renderTasks();
-                    taskInput.innerHTML = 'Paste or type task here';
-                }
-            }
-
-            function toggleTask(date, index) {
-                projects[currentProjectId].tasks[date][index].completed = !projects[currentProjectId].tasks[date][index].completed;
-                saveData();
-                renderTasks();
-            }
-
-            function deleteTask(date, index) {
-                projects[currentProjectId].tasks[date].splice(index, 1);
-                if (projects[currentProjectId].tasks[date].length === 0) delete projects[currentProjectId].tasks[date];
-                saveData();
-                renderTasks();
-            }
-
-            function saveData() {
-                localStorage.setItem('projects', JSON.stringify(projects));
-                localStorage.setItem('currentProjectId', currentProjectId);
-            }
-
-            function renderTasks() {
-                const container = document.getElementById('taskContainer');
-                container.innerHTML = '';
-                const dates = Object.keys(projects[currentProjectId].tasks).sort();
-                dates.forEach(date => {
-                    if (Array.isArray(projects[currentProjectId].tasks[date]) && projects[currentProjectId].tasks[date].length > 0) {
-                        const section = document.createElement('div');
-                        section.className = 'date-section';
-                        const dateObj = new Date(date);
-                        const dayNum = getDayNumber(date, projects[currentProjectId].startDate);
-                        section.innerHTML = `<div class="date-header">${dateObj.toDateString()} - Day ${dayNum}</div>`;
-                        const ul = document.createElement('ul');
-                        ul.className = 'task-list';
-                        projects[currentProjectId].tasks[date].forEach((task, index) => {
-                            const li = document.createElement('li');
-                            li.className = 'task-item' + (task.completed ? ' completed' : '');
-                            li.innerHTML = `
-                                <input type="checkbox" ${task.completed ? 'checked' : ''}>
-                                <span>${task.html}</span>
-                                <button>Delete</button>
-                            `;
-                            const checkbox = li.querySelector('input[type="checkbox"]');
-                            checkbox.addEventListener('change', () => toggleTask(date, index));
-                            const deleteBtn = li.querySelector('button');
-                            deleteBtn.addEventListener('click', () => deleteTask(date, index));
-                            ul.appendChild(li);
-                        });
-                        section.appendChild(ul);
-                        container.appendChild(section);
-                    }
-                });
-            }
-
-            const taskInput = document.getElementById('taskInput');
-            taskInput.addEventListener('focus', () => {
-                if (taskInput.innerHTML === 'Paste or type task here') taskInput.innerHTML = '';
+                projectList.appendChild(li);
             });
-            taskInput.addEventListener('blur', () => {
-                if (!taskInput.innerHTML.trim()) taskInput.innerHTML = 'Paste or type task here';
-            });
+        }
 
-            document.getElementById('addTaskBtn').addEventListener('click', addTask);
-
-            const projectStartInput = document.getElementById('projectStartDate');
-            projectStartInput.value = projects[currentProjectId].startDate;
-            projectStartInput.addEventListener('change', () => {
-                projects[currentProjectId].startDate = projectStartInput.value;
-                saveData();
-                populateDateDropdown();
-                renderTasks();
-            });
-
-            const newProjectBtn = document.getElementById('newProjectBtn');
-            const newProjectForm = document.getElementById('newProjectForm');
-            newProjectBtn.addEventListener('click', () => {
-                newProjectForm.style.display = 'block';
-                newProjectBtn.style.display = 'none';
-            });
-
-            document.getElementById('createProjectBtn').addEventListener('click', () => {
-                const name = document.getElementById('newProjectName').value.trim();
-                const desc = document.getElementById('newProjectDesc').value.trim();
-                const startDate = document.getElementById('newProjectStart').value;
-                if (name) {
-                    const id = Date.now().toString();
-                    projects[id] = { name, description: desc, startDate, tasks: {} };
-                    switchProject(id);
-                    renderProjects();
-                    newProjectForm.style.display = 'none';
-                    newProjectBtn.style.display = 'block';
-                    document.getElementById('newProjectName').value = '';
-                    document.getElementById('newProjectDesc').value = '';
-                }
-            });
-
-            document.getElementById('cancelProjectBtn').addEventListener('click', () => {
-                newProjectForm.style.display = 'none';
-                newProjectBtn.style.display = 'block';
-            });
-
+        function switchProject(id) {
+            saveProjectEdits();
+            currentProjectId = id;
+            saveData();
             const title = document.getElementById('projectTitle');
             const desc = document.getElementById('projectDesc');
-            document.addEventListener('click', (e) => {
-                if (!title.contains(e.target) && !desc.contains(e.target) && (title.contentEditable === "true" || desc.contentEditable === "true")) {
-                    console.log('Saving edits due to outside click');
-                    saveProjectEdits();
+            title.textContent = projects[id].name;
+            desc.textContent = projects[id].description;
+            title.contentEditable = "false";
+            desc.contentEditable = "false";
+            document.getElementById('projectStartDate').value = projects[id].startDate;
+            populateDateDropdown();
+            renderTasks();
+            renderProjects();
+        }
+
+        function editProject(id) {
+            console.log('editProject called with id:', id);
+            currentProjectId = id;
+            const title = document.getElementById('projectTitle');
+            const desc = document.getElementById('projectDesc');
+            if (title && desc) {
+                title.textContent = projects[id].name;
+                desc.textContent = projects[id].description;
+                title.contentEditable = "true";
+                desc.contentEditable = "true";
+                title.focus();
+                console.log('Set contentEditable: title=', title.contentEditable, 'desc=', desc.contentEditable);
+            } else {
+                console.error('Title or Desc element not found');
+            }
+        }
+
+        function saveProjectEdits() {
+            const title = document.getElementById('projectTitle');
+            const desc = document.getElementById('projectDesc');
+            if (title && desc && (title.contentEditable === "true" || desc.contentEditable === "true")) {
+                projects[currentProjectId].name = title.textContent.trim();
+                projects[currentProjectId].description = desc.textContent.trim();
+                title.contentEditable = "false";
+                desc.contentEditable = "false";
+                saveData();
+                renderProjects();
+            }
+        }
+
+        function sanitizeHtml(html) {
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+            const allowedTags = ['b', 'i', 'u', 'ul', 'ol', 'li', 'p', 'br'];
+            const walk = (node) => {
+                if (node.nodeType === 1) {
+                    const tagName = node.tagName.toLowerCase();
+                    if (!allowedTags.includes(tagName)) {
+                        node.replaceWith(...node.childNodes);
+                    } else {
+                        node.removeAttribute('style');
+                        node.removeAttribute('color');
+                        node.removeAttribute('bgcolor');
+                    }
+                    node.childNodes.forEach(walk);
+                }
+            };
+            walk(temp);
+            return temp.innerHTML;
+        }
+
+        function addTask() {
+            const taskInput = document.getElementById('taskInput');
+            const taskHtml = sanitizeHtml(taskInput.innerHTML.trim());
+            const taskDate = document.getElementById('dateInput').value;
+            console.log('Adding task for date:', taskDate);
+            if (taskHtml && taskHtml !== 'Paste or type task here') {
+                if (!projects[currentProjectId].tasks[taskDate]) projects[currentProjectId].tasks[taskDate] = [];
+                projects[currentProjectId].tasks[taskDate].push({ html: taskHtml, completed: false });
+                saveData();
+                renderTasks();
+                taskInput.innerHTML = 'Paste or type task here';
+            }
+        }
+
+        function toggleTask(date, index) {
+            projects[currentProjectId].tasks[date][index].completed = !projects[currentProjectId].tasks[date][index].completed;
+            saveData();
+            renderTasks();
+        }
+
+        function deleteTask(date, index) {
+            projects[currentProjectId].tasks[date].splice(index, 1);
+            if (projects[currentProjectId].tasks[date].length === 0) delete projects[currentProjectId].tasks[date];
+            saveData();
+            renderTasks();
+        }
+
+        function saveData() {
+            localStorage.setItem('projects', JSON.stringify(projects));
+            localStorage.setItem('currentProjectId', currentProjectId);
+        }
+
+        function renderTasks() {
+            const container = document.getElementById('taskContainer');
+            container.innerHTML = '';
+            const dates = Object.keys(projects[currentProjectId].tasks).sort();
+            dates.forEach(date => {
+                if (Array.isArray(projects[currentProjectId].tasks[date]) && projects[currentProjectId].tasks[date].length > 0) {
+                    const section = document.createElement('div');
+                    section.className = 'date-section';
+                    // Normalize date to local midnight to avoid UTC shift
+                    const dateObj = new Date(date + 'T00:00:00');
+                    const dayNum = getDayNumber(date, projects[currentProjectId].startDate);
+                    console.log('Rendering task for date:', date, 'displayed as:', dateObj.toDateString());
+                    section.innerHTML = `<div class="date-header">${dateObj.toDateString()} - Day ${dayNum}</div>`;
+                    const ul = document.createElement('ul');
+                    ul.className = 'task-list';
+                    projects[currentProjectId].tasks[date].forEach((task, index) => {
+                        const li = document.createElement('li');
+                        li.className = 'task-item' + (task.completed ? ' completed' : '');
+                        li.innerHTML = `
+                            <input type="checkbox" ${task.completed ? 'checked' : ''}>
+                            <span>${task.html}</span>
+                            <button>Delete</button>
+                        `;
+                        const checkbox = li.querySelector('input[type="checkbox"]');
+                        checkbox.addEventListener('change', () => toggleTask(date, index));
+                        const deleteBtn = li.querySelector('button');
+                        deleteBtn.addEventListener('click', () => deleteTask(date, index));
+                        ul.appendChild(li);
+                    });
+                    section.appendChild(ul);
+                    container.appendChild(section);
                 }
             });
-            title.addEventListener('keydown', (e) => { 
-                if (e.key === 'Enter') { 
-                    e.preventDefault(); 
-                    desc.focus(); 
-                } 
-            });
-            desc.addEventListener('keydown', (e) => { 
-                if (e.key === 'Enter') { 
-                    e.preventDefault(); 
-                    console.log('Enter pressed in description, saving edits');
-                    saveProjectEdits(); 
-                } 
-            });
+        }
 
-            renderProjects();
-            switchProject(currentProjectId);
+        const taskInput = document.getElementById('taskInput');
+        taskInput.addEventListener('focus', () => {
+            if (taskInput.innerHTML === 'Paste or type task here') taskInput.innerHTML = '';
         });
-    </script>
+        taskInput.addEventListener('blur', () => {
+            if (!taskInput.innerHTML.trim()) taskInput.innerHTML = 'Paste or type task here';
+        });
+
+        document.getElementById('addTaskBtn').addEventListener('click', addTask);
+
+        const projectStartInput = document.getElementById('projectStartDate');
+        projectStartInput.value = projects[currentProjectId].startDate;
+        projectStartInput.addEventListener('change', () => {
+            projects[currentProjectId].startDate = projectStartInput.value;
+            saveData();
+            populateDateDropdown();
+            renderTasks();
+        });
+
+        const newProjectBtn = document.getElementById('newProjectBtn');
+        const newProjectForm = document.getElementById('newProjectForm');
+        newProjectBtn.addEventListener('click', () => {
+            newProjectForm.style.display = 'block';
+            newProjectBtn.style.display = 'none';
+        });
+
+        document.getElementById('createProjectBtn').addEventListener('click', () => {
+            const name = document.getElementById('newProjectName').value.trim();
+            const desc = document.getElementById('newProjectDesc').value.trim();
+            const startDate = document.getElementById('newProjectStart').value;
+            if (name) {
+                const id = Date.now().toString();
+                projects[id] = { name, description: desc, startDate, tasks: {} };
+                switchProject(id);
+                renderProjects();
+                newProjectForm.style.display = 'none';
+                newProjectBtn.style.display = 'block';
+                document.getElementById('newProjectName').value = '';
+                document.getElementById('newProjectDesc').value = '';
+            }
+        });
+
+        document.getElementById('cancelProjectBtn').addEventListener('click', () => {
+            newProjectForm.style.display = 'none';
+            newProjectBtn.style.display = 'block';
+        });
+
+        const title = document.getElementById('projectTitle');
+        const desc = document.getElementById('projectDesc');
+        document.addEventListener('click', (e) => {
+            if (!title.contains(e.target) && !desc.contains(e.target) && (title.contentEditable === "true" || desc.contentEditable === "true")) {
+                console.log('Saving edits due to outside click');
+                saveProjectEdits();
+            }
+        });
+        title.addEventListener('keydown', (e) => { 
+            if (e.key === 'Enter') { 
+                e.preventDefault(); 
+                desc.focus(); 
+            } 
+        });
+        desc.addEventListener('keydown', (e) => { 
+            if (e.key === 'Enter') { 
+                e.preventDefault(); 
+                console.log('Enter pressed in description, saving edits');
+                saveProjectEdits(); 
+            } 
+        });
+
+        renderProjects();
+        switchProject(currentProjectId);
+    });
+</script>
 </body>
 </html>
