@@ -220,24 +220,46 @@
         }
         Object.values(projects).forEach(project => project.tasks = normalizeTasks(project.tasks));
 
+        function parseDate(dateStr) {
+            const [year, month, day] = dateStr.split('-').map(Number);
+            return { year, month: month - 1, day }; // month is 0-based in JS Date
+        }
+
+        function addDays(dateStr, days) {
+            const date = new Date(dateStr + 'T00:00:00');
+            date.setUTCDate(date.getUTCDate() + days); // Use UTC to avoid local DST
+            return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+        }
+
         function getDayNumber(dateStr, startDate) {
-            const start = new Date(startDate + 'T00:00:00');
-            const current = new Date(dateStr + 'T00:00:00');
-            const diffTime = current - start;
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
-            console.log(`Calculating day: ${dateStr} from ${startDate} = Day ${diffDays}`);
-            return diffDays >= 1 ? diffDays : 1;
+            let current = parseDate(startDate);
+            const target = parseDate(dateStr);
+            let dayCount = 1;
+
+            while (current.year !== target.year || current.month !== target.month || current.day !== target.day) {
+                current.day++;
+                if (current.day > new Date(current.year, current.month + 1, 0).getDate()) {
+                    current.day = 1;
+                    current.month++;
+                    if (current.month > 11) {
+                        current.month = 0;
+                        current.year++;
+                    }
+                }
+                dayCount++;
+            }
+            console.log(`Calculating day: ${dateStr} from ${startDate} = Day ${dayCount}`);
+            return dayCount;
         }
 
         function populateDateDropdown() {
             const dateInput = document.getElementById('dateInput');
-            const startDate = new Date(projects[currentProjectId].startDate + 'T00:00:00');
+            const startDate = projects[currentProjectId].startDate;
             dateInput.innerHTML = '';
             for (let i = 0; i < 365; i++) {
-                const date = new Date(startDate);
-                date.setDate(startDate.getDate() + i);
-                const dateStr = date.toISOString().split('T')[0];
-                const dayNum = getDayNumber(dateStr, projects[currentProjectId].startDate);
+                const dateStr = addDays(startDate, i);
+                const date = new Date(dateStr + 'T00:00:00');
+                const dayNum = i + 1; // Direct increment, no timestamp math
                 const option = document.createElement('option');
                 option.value = dateStr;
                 option.text = `${date.toDateString()} - Day ${dayNum}`;
