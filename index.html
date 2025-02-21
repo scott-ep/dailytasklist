@@ -205,7 +205,7 @@
         <div id="taskContainer"></div>
     </div>
 
-    <script>
+<script>
     document.addEventListener('DOMContentLoaded', () => {
         let projects = JSON.parse(localStorage.getItem('projects')) || {
             'default': { name: 'Default Project', description: 'Default project', startDate: '2025-02-21', tasks: {} }
@@ -225,6 +225,7 @@
             const current = new Date(dateStr + 'T00:00:00');
             const diffTime = current - start;
             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            console.log(`Calculating day: ${dateStr} from ${startDate} = Day ${diffDays}`);
             return diffDays >= 1 ? diffDays : 1;
         }
 
@@ -372,7 +373,6 @@
                 if (Array.isArray(projects[currentProjectId].tasks[date]) && projects[currentProjectId].tasks[date].length > 0) {
                     const section = document.createElement('div');
                     section.className = 'date-section';
-                    // Normalize date to local midnight to avoid UTC shift
                     const dateObj = new Date(date + 'T00:00:00');
                     const dayNum = getDayNumber(date, projects[currentProjectId].startDate);
                     console.log('Rendering task for date:', date, 'displayed as:', dateObj.toDateString());
