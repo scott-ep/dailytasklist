@@ -133,10 +133,12 @@
             list-style: none;
             padding: 0;
             margin: 0;
+            min-height: 20px; /* Allow dropping when empty */
         }
         .task-item {
             padding: 12px 15px;
             border-bottom: 1px solid #444;
+            cursor: move; /* Indicate draggability */
         }
         .task-item:last-child {
             border-bottom: none;
@@ -208,6 +210,9 @@
         }
         .recurring-options {
             display: none;
+        }
+        .drag-over {
+            background-color: #333; /* Highlight drop target */
         }
     </style>
 </head>
@@ -460,9 +465,42 @@
                         section.innerHTML = `<div class="date-header">${dateObj.toDateString()} - Day ${dayNum}</div>`;
                         const ul = document.createElement('ul');
                         ul.className = 'task-list';
+                        ul.dataset.date = date; // For drop target identification
+                        ul.addEventListener('dragover', (e) => {
+                            e.preventDefault();
+                            ul.classList.add('drag-over');
+                        });
+                        ul.addEventListener('dragleave', () => ul.classList.remove('drag-over'));
+                        ul.addEventListener('drop', (e) => {
+                            e.preventDefault();
+                            ul.classList.remove('drag-over');
+                            const [dragDate, dragIndex] = e.dataTransfer.getData('text/plain').split(':');
+                            const dropDate = ul.dataset.date;
+                            const draggedTask = projects[currentProjectId].tasks[dragDate][dragIndex];
+                            if (dragDate === dropDate) {
+                                const dropIndex = getDropIndex(ul, e.clientY);
+                                projects[currentProjectId].tasks[dragDate].splice(dragIndex, 1);
+                                projects[currentProjectId].tasks[dragDate].splice(dropIndex, 0, draggedTask);
+                            } else {
+                                projects[currentProjectId].tasks[dragDate].splice(dragIndex, 1);
+                                if (!projects[currentProjectId].tasks[dropDate]) projects[currentProjectId].tasks[dropDate] = [];
+                                projects[currentProjectId].tasks[dropDate].push(draggedTask);
+                                if (projects[currentProjectId].tasks[dragDate].length === 0) delete projects[currentProjectId].tasks[dragDate];
+                            }
+                            saveData();
+                            renderTasks();
+                        });
                         projects[currentProjectId].tasks[date].forEach((task, index) => {
                             const li = document.createElement('li');
                             li.className = 'task-item' + (task.completed ? ' completed' : '');
+                            li.draggable = true;
+                            li.dataset.id = `${date}:${index}`;
+                            li.addEventListener('dragstart', (e) => {
+                                e.dataTransfer.setData('text/plain', li.dataset.id);
+                            });
+                            li.addEventListener('dragend', () => {
+                                document.querySelectorAll('.task-list').forEach(list => list.classList.remove('drag-over'));
+                            });
 
                             const taskContent = document.createElement('div');
                             taskContent.className = 'task-content';
@@ -583,6 +621,15 @@
                         container.appendChild(section);
                     }
                 });
+            }
+
+            function getDropIndex(ul, y) {
+                const tasks = Array.from(ul.querySelectorAll('.task-item'));
+                for (let i = 0; i < tasks.length; i++) {
+                    const rect = tasks[i].getBoundingClientRect();
+                    if (y < rect.top + rect.height / 2) return i;
+                }
+                return tasks.length;
             }
 
             function editComment(commentDiv, task, commentIndex) {
