@@ -158,7 +158,7 @@
         .task-text {
             flex: 1;
             color: #e0e0e0;
-	    word-wrap: break-word; /* Ensure task text wraps */
+            word-wrap: break-word;
         }
         .task-item button {
             padding: 6px 12px;
@@ -166,27 +166,27 @@
         }
         .comments {
             margin-left: 33px;
-            width: calc(100% - 33px); /* Full width minus the margin */
-            padding-right: 15px; /* Match task-item padding to prevent cutoff */
+            width: calc(100% - 33px);
+            padding-right: 15px;
         }
         .comment {
             display: flex;
-            align-items: flex-start; /* Align items to the top for multi-line comments */
+            align-items: flex-start;
             gap: 10px;
             margin: 5px 0;
         }
         .comment-text {
-            flex: 1 1 auto; /* Allow text to shrink and grow as needed */
+            flex: 1 1 auto;
             color: #a0a0a0;
             font-style: italic;
-            word-wrap: break-word; /* Ensure comment text wraps */
-            min-width: 0; /* Allow shrinking in flex container */
+            word-wrap: break-word;
+            min-width: 0;
         }
         .comment button {
-            flex-shrink: 0; /* Ensure buttons don’t shrink */
+            flex-shrink: 0;
             padding: 2px 5px;
             font-size: 12px;
-            margin-left: 5px; /* Add spacing between buttons */
+            margin-left: 5px;
         }
         .comment-input {
             background-color: #2a2a2a;
@@ -204,6 +204,9 @@
         textarea {
             min-height: 80px;
             resize: vertical;
+        }
+        .recurring-options {
+            display: none;
         }
     </style>
 </head>
@@ -231,6 +234,12 @@
             <div contenteditable="true" id="taskInput" placeholder="Paste or type task here">Paste or type task here</div>
             <div class="task-controls">
                 <select id="dateInput"></select>
+                <label><input type="checkbox" id="recurringTask"> Recurring</label>
+                <select id="recurringFrequency" class="recurring-options">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                </select>
                 <button id="addTaskBtn">Add Task</button>
             </div>
         </div>
@@ -299,6 +308,11 @@
                     dateInput.appendChild(option);
                 }
             }
+
+            // Toggle recurring frequency dropdown visibility
+            document.getElementById('recurringTask').addEventListener('change', function() {
+                document.getElementById('recurringFrequency').style.display = this.checked ? 'block' : 'none';
+            });
 
             function renderProjects() {
                 const projectList = document.getElementById('projectList');
@@ -384,12 +398,33 @@
                 const taskInput = document.getElementById('taskInput');
                 const taskHtml = sanitizeHtml(taskInput.innerHTML.trim());
                 const taskDate = document.getElementById('dateInput').value;
+                const isRecurring = document.getElementById('recurringTask').checked;
+                const frequency = document.getElementById('recurringFrequency').value;
+
                 if (taskHtml && taskHtml !== 'Paste or type task here') {
-                    if (!projects[currentProjectId].tasks[taskDate]) projects[currentProjectId].tasks[taskDate] = [];
-                    projects[currentProjectId].tasks[taskDate].push({ html: taskHtml, completed: false, comments: [] });
+                    const task = { html: taskHtml, completed: false, comments: [] };
+                    if (isRecurring) {
+                        addRecurringTask(task, taskDate, frequency);
+                    } else {
+                        if (!projects[currentProjectId].tasks[taskDate]) projects[currentProjectId].tasks[taskDate] = [];
+                        projects[currentProjectId].tasks[taskDate].push(task);
+                    }
                     saveData();
                     renderTasks();
                     taskInput.innerHTML = 'Paste or type task here';
+                }
+            }
+
+            function addRecurringTask(task, startDate, frequency) {
+                const start = new Date(startDate);
+                for (let i = 0; i < 365; i++) {
+                    const dateStr = addDays(startDate, i);
+                    if (frequency === 'daily' ||
+                        (frequency === 'weekly' && i % 7 === 0) ||
+                        (frequency === 'monthly' && new Date(dateStr).getDate() === start.getDate())) {
+                        if (!projects[currentProjectId].tasks[dateStr]) projects[currentProjectId].tasks[dateStr] = [];
+                        projects[currentProjectId].tasks[dateStr].push({ ...task });
+                    }
                 }
             }
 
